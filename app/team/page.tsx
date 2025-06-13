@@ -548,7 +548,6 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
         rotate: index % 2 === 0 ? 1 : -1,
       }}
       className="team-card relative cursor-pointer"
-      
       onClick={onClick}
     >
       <Card
@@ -558,7 +557,7 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
           country === "USA" ? "border-blue-500/30" : "border-green-500/30"
         )}
       >
-        {/* Glow effect */}yodahe
+        {/* Glow effect */}
         <div className={clsx(
           "absolute top-0 left-0 w-full h-1 bg-gradient-to-r",
           country === "USA" 
