@@ -81,21 +81,19 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           <Link href="/" aria-label="ወቸው Good home">
-            <motion.div
-              whileHover={{ rotate: 10, scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center space-x-2"
-            >
-              <FaPodcast size={28} className="text-yellow-400" />
-              <motion.span
-                className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 text-xl sm:text-2xl md:text-3xl select-none"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                ወቸው Good
-              </motion.span>
-            </motion.div>
+                      <motion.div 
+            className="flex items-center gap-2"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="w-10 h-10 rounded-full bg-[#EAA632] flex items-center justify-center">
+              <span className="text-white font-bold text-xl">G</span>
+            </div>
+            <span className="text-2xl font-bold text-[#192937] dark:text-white">
+              ወቸው <span className="text-[#EAA632]">GOOD</span>
+            </span>
+          </motion.div>
           </Link>
 
           {/* Desktop Menu */}

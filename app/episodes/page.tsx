@@ -1,15 +1,8 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState, useMemo, useRef } from 'react'
-import { Play, Heart, MessageCircle, Eye, ChevronDown, X } from 'lucide-react'
-
-// Extend the Window interface to include onYouTubeIframeAPIReady
-declare global {
-  interface Window {
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
+import { useEffect, useState, useMemo } from 'react'
+import { Play, Heart, MessageCircle, Eye, ChevronDown } from 'lucide-react'
 
 const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY
 const CHANNEL_ID = 'UCJD-UtyBgYWqvmp_lknn7Lg'
@@ -80,87 +73,12 @@ export default function Episodes() {
   const [showAllVideos, setShowAllVideos] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const videosPerPage = 12
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null)
-  const playerRef = useRef<HTMLDivElement>(null)
-  const playerInstance = useRef<any>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [showHeroText, setShowHeroText] = useState(true)
 
   // Detect client-side to prevent hydration errors
   useEffect(() => {
     setIsClient(true)
-    // Load YouTube IFrame API
-    const tag = document.createElement('script')
-    tag.src = 'https://www.youtube.com/iframe_api'
-    const firstScriptTag = document.getElementsByTagName('script')[0]
-    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
-
-    // Initialize YouTube player when API is ready
-    window.onYouTubeIframeAPIReady = initializePlayer
-
-    return () => {
-      if (playerInstance.current) {
-        playerInstance.current.destroy()
-      }
-    }
   }, [])
-
-  // Initialize YouTube player
-  const initializePlayer = () => {
-    if (playerRef.current && selectedVideo) {
-      playerInstance.current = new (window as any).YT.Player(playerRef.current, {
-        height: '100%',
-        width: '100%',
-        videoId: selectedVideo,
-        playerVars: {
-          playsinline: 1,
-          autoplay: 1,
-          modestbranding: 1,
-          rel: 0
-        },
-        events: {
-          'onReady': onPlayerReady,
-          'onStateChange': onPlayerStateChange
-        }
-      })
-    }
-  }
-
-  const onPlayerReady = (event: any) => {
-    event.target.playVideo()
-    setIsPlaying(true)
-  }
-
-  const onPlayerStateChange = (event: any) => {
-    // Video ended (0) or paused (2)
-    if (event.data === 0 || event.data === 2) {
-      setIsPlaying(false)
-    } 
-    // Playing (1)
-    else if (event.data === 1) {
-      setIsPlaying(true)
-    }
-  }
-
-  // When selected video changes
-  useEffect(() => {
-    if (selectedVideo) {
-      if (playerInstance.current) {
-        playerInstance.current.loadVideoById(selectedVideo)
-        playerInstance.current.playVideo()
-      } else {
-        initializePlayer()
-      }
-    }
-  }, [selectedVideo])
-
-  // Close player
-  const closePlayer = () => {
-    setSelectedVideo(null)
-    setIsPlaying(false)
-    if (playerInstance.current) {
-      playerInstance.current.stopVideo()
-    }
-  }
 
   // Fetch videos with enhanced data
   useEffect(() => {
@@ -340,42 +258,6 @@ export default function Episodes() {
 
   return (
     <div className="min-h-screen bg-[#F0F4F8] dark:bg-[#0F1A24]">
-      {/* Video Player Modal */}
-      <AnimatePresence>
-        {selectedVideo && (
-          <motion.div 
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div 
-              className="relative w-full max-w-4xl aspect-video bg-black rounded-xl overflow-hidden"
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
-              <div 
-                ref={playerRef}
-                className="w-full h-full"
-                id="youtube-player"
-              />
-              
-              <button 
-                onClick={closePlayer}
-                className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-              >
-                <X size={24} />
-              </button>
-              
-              <div className="absolute bottom-4 left-4 text-white text-lg font-medium">
-                {allVideos.find(v => v.id === selectedVideo)?.title}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Modern Hero Section */}
       <motion.div 
         className="relative overflow-hidden bg-gradient-to-br from-[#192937] via-[#2a4552] to-[#385666] text-white pt-24 pb-16 md:pt-32 md:pb-24"
@@ -426,7 +308,7 @@ export default function Episodes() {
                   transition={{ delay: 0.4 }}
                 >
                   <span className="block text-[#EAA632]">ወቸው GOOD</span>
-                  <span className="text-white">የአዲሱ ትውልድ ድምፅ</span>
+                  <span className="text-white">የአዲሱ ትውልድ �ድምፅ</span>
                 </motion.h1>
                 
                 <motion.div 
@@ -486,15 +368,10 @@ export default function Episodes() {
                 transition={{ delay: 1.0, ease: "easeOut" }}
                 className="flex flex-wrap gap-4"
               >
-                {allVideos.length > 0 && (
-                  <button 
-                    onClick={() => setSelectedVideo(allVideos[0].id)}
-                    className={`bg-[#EAA632] text-white px-6 py-3 rounded-full font-bold 
-                      hover:bg-[#d6942a] transition-all shadow-lg flex items-center gap-2`}
-                  >
-                    <Play size={18} /> Watch Latest Episode
-                  </button>
-                )}
+                <button className={`bg-[#EAA632] text-white px-6 py-3 rounded-full font-bold 
+                  hover:bg-[#d6942a] transition-all shadow-lg flex items-center gap-2`}>
+                  <Play size={18} /> Watch Latest Episode
+                </button>
                 
                 <button className={`bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium 
                   hover:bg-white/10 transition-all flex items-center gap-2`}>
@@ -512,22 +389,7 @@ export default function Episodes() {
               <div className="relative">
                 <div className="absolute -inset-4 bg-[#EAA632]/30 rounded-2xl blur-xl"></div>
                 <div className="bg-gradient-to-br from-[#EAA632] to-[#D94B2B] p-1 rounded-2xl relative overflow-hidden">
-                  {allVideos.length > 0 ? (
-                    <img 
-                      src={allVideos[0].thumbnail} 
-                      alt="Latest episode" 
-                      className="w-full h-64 md:h-80 lg:h-96 object-cover rounded-xl cursor-pointer"
-                      onClick={() => setSelectedVideo(allVideos[0].id)}
-                    />
-                  ) : (
-                    <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 lg:h-96" />
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-                    onClick={() => allVideos.length > 0 && setSelectedVideo(allVideos[0].id)}>
-                    <div className="w-16 h-16 rounded-full bg-[#EAA632] flex items-center justify-center">
-                      <Play className="text-white ml-1" size={32} />
-                    </div>
-                  </div>
+                  <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 lg:h-96" />
                 </div>
               </div>
             </motion.div>
@@ -662,18 +524,18 @@ export default function Episodes() {
         >
           <AnimatePresence>
             {currentVideos.map((video) => (
-              <motion.div
+              <motion.a
                 key={video.id}
+                href={`https://www.youtube.com/watch?v=${video.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block group"
                 variants={itemVariants}
                 whileHover="hover"
                 whileTap="tap"
                 layout
               >
-                <div 
-                  className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 h-full flex flex-col cursor-pointer"
-                  onClick={() => setSelectedVideo(video.id)}
-                >
+                <div className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 h-full flex flex-col">
                   {/* Thumbnail with duration badge */}
                   <div className="relative aspect-video">
                     <div className="relative h-full w-full overflow-hidden">
@@ -729,7 +591,7 @@ export default function Episodes() {
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </motion.a>
             ))}
           </AnimatePresence>
         </motion.div>
