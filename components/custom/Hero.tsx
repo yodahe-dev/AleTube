@@ -103,6 +103,7 @@ export default function HeroSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [subscriberCount, setSubscriberCount] = useState<number>(0)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const prevSubscriberCount = useRef<number>(0)
 
   // Fetch channel stats and latest video
@@ -209,9 +210,10 @@ export default function HeroSection() {
   }
 
   // Handle play video
-  const handlePlayVideo = (videoId: string) => {
-    // For demo purposes, open in new tab
-    window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank')
+  const handlePlayVideo = () => {
+    if (latestVideo) {
+      setIsVideoPlaying(true)
+    }
   }
 
   return (
@@ -362,7 +364,7 @@ export default function HeroSection() {
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => handlePlayVideo(latestVideo.id)}
+                  onClick={handlePlayVideo}
                   className={`bg-[#EAA632] text-white px-6 py-3 rounded-full font-bold 
                     hover:bg-[#d6942a] transition-all shadow-lg flex items-center gap-2`}
                 >
@@ -387,29 +389,41 @@ export default function HeroSection() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.6 }}
           >
-            <div className="relative">
+            <div className="relative w-full max-w-[640px]">
               <div className="absolute -inset-4 bg-[#EAA632]/30 rounded-2xl blur-xl"></div>
               <div className="bg-gradient-to-br from-[#EAA632] to-[#D94B2B] p-1 rounded-2xl relative overflow-hidden">
                 {latestVideo ? (
-                  <div className="relative">
-                    <img 
-                      src={latestVideo.thumbnail} 
-                      alt="Latest episode" 
-                      className="w-full h-64 md:h-80 lg:h-96 object-cover rounded-xl cursor-pointer"
-                      onClick={() => handlePlayVideo(latestVideo.id)}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-                      onClick={() => handlePlayVideo(latestVideo.id)}>
-                      <motion.div 
-                        className="w-16 h-16 rounded-full bg-[#EAA632] flex items-center justify-center"
-                        whileHover={{ rotate: 15, scale: 1.1 }}
-                      >
-                        <Play className="text-white ml-1" size={32} />
-                      </motion.div>
-                    </div>
+                  <div className="relative w-full aspect-[16/9]">
+                    {isVideoPlaying ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${latestVideo.id}?autoplay=1`}
+                        title={latestVideo.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full rounded-lg"
+                      />
+                    ) : (
+                      <div className="relative w-full h-full">
+                        <img 
+                          src={latestVideo.thumbnail} 
+                          alt="Latest episode" 
+                          className="w-full h-full object-cover rounded-xl cursor-pointer"
+                          onClick={handlePlayVideo}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 md:opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={handlePlayVideo}>
+                          <motion.div 
+                            className="w-16 h-16 rounded-full bg-[#EAA632] flex items-center justify-center"
+                            whileHover={{ rotate: 15, scale: 1.1 }}
+                          >
+                            <Play className="text-white ml-1" size={32} />
+                          </motion.div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 lg:h-96" />
+                  <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full aspect-[16/9]" />
                 )}
               </div>
             </div>

@@ -1,8 +1,8 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState, useMemo } from 'react'
-import { Play, Heart, MessageCircle, Eye, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Play, Heart, ChevronDown, Search, Filter, X, ArrowDown, ArrowUp, Star, Eye } from 'lucide-react'
 
 const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY
 const CHANNEL_ID = 'UCJD-UtyBgYWqvmp_lknn7Lg'
@@ -11,17 +11,9 @@ type Video = {
   id: string
   title: string
   thumbnail: string
-  views: number
   publishedAt: string
-  likes: number
-  comments: number
-  duration: string
-}
-
-type ChannelStats = {
-  subscriberCount: string
   viewCount: string
-  videoCount: string
+  duration: string
 }
 
 // Ethiopian-inspired colors with modern twist
@@ -41,622 +33,491 @@ const formatNumber = (num: number): string => {
   return num.toString()
 }
 
-// Format date like YouTube
-const formatPublishedDate = (publishedAt: string) => {
-  const now = new Date()
-  const publishedDate = new Date(publishedAt)
-  const diffMs = now.getTime() - publishedDate.getTime()
+// More robust duration formatting
+const formatDuration = (duration: string): string => {
+  if (!duration) return '0:00'
   
-  const diffSecs = Math.floor(diffMs / 1000)
-  const diffMins = Math.floor(diffSecs / 60)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-  const diffWeeks = Math.floor(diffDays / 7)
-  const diffMonths = Math.floor(diffDays / 30)
-  const diffYears = Math.floor(diffDays / 365)
-
-  if (diffYears > 0) return `${diffYears} year${diffYears > 1 ? 's' : ''} ago`
-  if (diffMonths > 0) return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`
-  if (diffWeeks > 0) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`
-  if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
-  if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
-  if (diffMins > 0) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
-  return 'Just now'
+  try {
+    // Extract time components
+    const hoursMatch = duration.match(/(\d+)H/)
+    const minutesMatch = duration.match(/(\d+)M/)
+    const secondsMatch = duration.match(/(\d+)S/)
+    
+    const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0
+    const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0
+    const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0
+    
+    // Format based on components
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  } catch (e) {
+    console.error('Error formatting duration:', duration, e)
+    return '0:00'
+  }
 }
 
-export default function Episodes() {
-  const [allVideos, setAllVideos] = useState<Video[]>([])
-  const [channelStats, setChannelStats] = useState<ChannelStats | null>(null)
+export default function EpisodesPage() {
+  const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'popularity' | 'likes' | 'comments'>('newest')
-  const [isClient, setIsClient] = useState(false)
-  const [showAllVideos, setShowAllVideos] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const videosPerPage = 12
-  const [showHeroText, setShowHeroText] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'popular'>('newest')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Detect client-side to prevent hydration errors
+  // Fetch videos from the channel
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Fetch videos with enhanced data
-  useEffect(() => {
-    const fetchData = async () => {
+    const fetchVideos = async () => {
       try {
-        // Fetch channel statistics
-        const channelRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${CHANNEL_ID}&key=${API_KEY}`
-        )
-        const channelData = await channelRes.json()
-        const stats = channelData.items?.[0]?.statistics
+        setLoading(true)
+        setError(null)
         
-        if (stats) {
-          setChannelStats({
-            subscriberCount: stats.subscriberCount,
-            viewCount: stats.viewCount,
-            videoCount: stats.videoCount
-          })
-        }
-
-        // Get uploads playlist
-        const channelDetailsRes = await fetch(
+        // Get the uploads playlist ID
+        const channelRes = await fetch(
           `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${CHANNEL_ID}&key=${API_KEY}`
         )
-        const channelDetailsData = await channelDetailsRes.json()
-        const uploadsId = channelDetailsData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+        const channelData = await channelRes.json()
+        const uploadsId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
         
         if (!uploadsId) {
-          console.error('Uploads playlist not found')
-          setLoading(false)
+          setError('Uploads playlist not found')
           return
         }
 
-        // Get all videos from playlist
-        const allVideosData: Video[] = []
-        let nextPageToken = ''
-        
-        do {
-          const playlistRes = await fetch(
-            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsId}&pageToken=${nextPageToken}&key=${API_KEY}`
-          )
-          const playlistData = await playlistRes.json()
-          const items = playlistData.items || []
-          nextPageToken = playlistData.nextPageToken || ''
-          
-          const videoIds = items.map((item: any) => item.snippet.resourceId?.videoId).filter(Boolean).join(',')
-
-          // Get detailed video statistics
-          if (videoIds) {
-            const statsRes = await fetch(
-              `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=${videoIds}&key=${API_KEY}`
-            )
-            const statsData = await statsRes.json()
-
-            // Parse duration from ISO 8601
-            const parseDuration = (duration: string) => {
-              const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/)
-              if (!match) return ''
-              
-              const hours = parseInt(match[1]) || 0
-              const minutes = parseInt(match[2]) || 0
-              const seconds = parseInt(match[3]) || 0
-              
-              return [
-                hours ? `${hours}:` : '',
-                `${minutes.toString().padStart(hours ? 2 : 1, '0')}:`,
-                `${seconds.toString().padStart(2, '0')}`
-              ].join('')
-            }
-
-            const batchVideos: Video[] = statsData.items.map((item: any) => ({
-              id: item.id,
-              title: item.snippet.title,
-              thumbnail: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default.url,
-              views: parseInt(item.statistics.viewCount) || 0,
-              publishedAt: item.snippet.publishedAt,
-              likes: parseInt(item.statistics.likeCount) || 0,
-              comments: parseInt(item.statistics.commentCount) || 0,
-              duration: parseDuration(item.contentDetails.duration)
-            }))
-
-            allVideosData.push(...batchVideos)
-          }
-        } while (nextPageToken)
-
-        // Sort by published date to ensure oldest videos come first
-        const sortedByDate = [...allVideosData].sort((a, b) => 
-          new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+        // Get videos from the playlist
+        const playlistRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsId}&key=${API_KEY}`
         )
+        const playlistData = await playlistRes.json()
         
-        setAllVideos(sortedByDate)
+        // Get video IDs for fetching details
+        const videoIds = playlistData.items.map((item: any) => item.snippet.resourceId.videoId).join(',')
+        
+        // Get video details (including duration and view count)
+        const videosRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
+        )
+        const videosData = await videosRes.json()
+        
+        // Format videos data with error handling
+        const formattedVideos = videosData.items.map((item: any) => {
+          // Handle missing view count
+          const viewCount = item.statistics?.viewCount ? 
+            formatNumber(parseInt(item.statistics.viewCount)) : 
+            'N/A'
+          
+          // Handle missing duration
+          const duration = item.contentDetails?.duration ? 
+            formatDuration(item.contentDetails.duration) : 
+            '0:00'
+          
+          return {
+            id: item.id,
+            title: item.snippet.title,
+            thumbnail: item.snippet.thumbnails?.medium?.url || 
+                     item.snippet.thumbnails?.default?.url || 
+                     '/default-thumbnail.jpg',
+            publishedAt: item.snippet.publishedAt,
+            viewCount,
+            duration
+          }
+        })
+        
+        setVideos(formattedVideos)
       } catch (err) {
-        console.error('Error fetching data', err)
+        setError('Failed to fetch videos. Please check your network connection and try again.')
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    fetchVideos()
   }, [])
 
-  // Sort videos based on selected criteria
-  const sortedVideos = useMemo(() => {
-    return [...allVideos].sort((a, b) => {
-      if (sortBy === 'popularity') return b.views - a.views
-      if (sortBy === 'likes') return b.likes - a.likes
-      if (sortBy === 'comments') return b.comments - a.comments
-      if (sortBy === 'newest') return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      return new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
-    })
-  }, [allVideos, sortBy])
+  // Filter and sort videos
+  const filteredVideos = useMemo(() => {
+    let result = [...videos]
+    
+    // Apply search filter
+    if (searchQuery) {
+      result = result.filter(video => 
+        video.title.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+    
+    // Apply sorting
+    if (sortBy === 'newest') {
+      result.sort((a, b) => 
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      )
+    } else if (sortBy === 'oldest') {
+      result.sort((a, b) => 
+        new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+      )
+    } else if (sortBy === 'popular') {
+      result.sort((a, b) => {
+        // Handle non-numeric view counts
+        const aViews = a.viewCount === 'N/A' ? 0 : parseInt(a.viewCount.replace(/[^0-9]/g, ''))
+        const bViews = b.viewCount === 'N/A' ? 0 : parseInt(b.viewCount.replace(/[^0-9]/g, ''))
+        return bViews - aViews
+      })
+    }
+    
+    return result
+  }, [videos, searchQuery, sortBy])
 
-  // Paginated videos
-  const currentVideos = useMemo(() => {
-    return sortedVideos.slice(0, currentPage * videosPerPage)
-  }, [sortedVideos, currentPage])
+  // Focus search input when filter menu is opened
+  useEffect(() => {
+    if (showFilters && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showFilters])
 
-  // Load more videos
-  const loadMoreVideos = () => {
-    setCurrentPage(prev => prev + 1)
-    setShowAllVideos((currentPage + 1) * videosPerPage >= sortedVideos.length)
-  }
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
+  // Handle play video
+  const handlePlayVideo = (videoId: string) => {
+    if (playingVideoId === videoId) {
+      setPlayingVideoId(null)
+    } else {
+      setPlayingVideoId(videoId)
     }
   }
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.4,
-        ease: "easeOut"
-      }
-    },
-    hover: {
-      y: -8,
-      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-      transition: { duration: 0.3, ease: "easeOut" }
-    },
-    tap: { scale: 0.98 }
+  // Handle scroll to top
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Skeleton loader
-  if (loading) return (
-    <div className="min-h-screen bg-[#F0F4F8] dark:bg-[#0F1A24] py-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-wrap gap-3 mb-8 animate-pulse">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-10 w-24 bg-gray-300 dark:bg-neutral-700 rounded-full"></div>
-          ))}
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-md">
-              <div className="bg-gray-200 dark:bg-neutral-800 h-48 w-full animate-pulse"></div>
-              <div className="p-4 space-y-2">
-                <div className="h-5 bg-gray-200 dark:bg-neutral-800 rounded w-4/5 animate-pulse"></div>
-                <div className="h-4 bg-gray-200 dark:bg-neutral-800 rounded w-1/2 animate-pulse"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
+  // Format date to avoid hydration mismatch
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch (e) {
+      return dateString.substring(0, 10) // Fallback to YYYY-MM-DD
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] dark:bg-[#0F1A24]">
-      {/* Modern Hero Section */}
-      <motion.div 
-        className="relative overflow-hidden bg-gradient-to-br from-[#192937] via-[#2a4552] to-[#385666] text-white pt-24 pb-16 md:pt-32 md:pb-24"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-      >
-        {/* Dynamic floating shapes */}
-        <motion.div 
-          className="absolute top-10 left-1/4 w-24 h-24 rounded-full bg-[#EAA632]/20 blur-xl"
-          animate={{ 
-            y: [0, 15, 0],
-            scale: [1, 1.05, 1]
-          }}
-          transition={{ 
-            duration: 6,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        
-        <motion.div 
-          className="absolute top-1/3 right-1/4 w-16 h-16 rounded-full bg-[#D94B2B]/20 blur-xl"
-          animate={{ 
-            y: [0, -20, 0],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ 
-            duration: 5,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <div className="flex flex-col md:flex-row gap-12 items-center">
-            <div className="flex-1">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="mb-6"
+    <div className="min-h-screen bg-gradient-to-b from-[#192937] to-[#2a4552] text-white">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-[#192937]/90 backdrop-blur-md border-b border-[#385666]">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <motion.div 
+            className="flex items-center gap-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#EAA632] to-[#D94B2B] flex items-center justify-center">
+              <Play size={20} />
+            </div>
+            <h1 className="text-xl md:text-2xl font-bold">
+              <span className="text-[#EAA632]">ወቸው GOOD</span> Episodes
+            </h1>
+          </motion.div>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 bg-[#385666] px-4 py-2 rounded-full hover:bg-[#2a4552] transition-colors"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <Filter size={18} />
+            <span className="hidden md:inline">Filters</span>
+          </motion.button>
+        </div>
+      </header>
+      
+      {/* Filter Menu */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-[#192937] border-b border-[#385666] overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="text-gray-400" size={18} />
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search episodes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-[#2a4552] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EAA632]"
+                />
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSortBy('newest')}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    sortBy === 'newest' 
+                      ? 'bg-[#EAA632] text-[#192937]' 
+                      : 'bg-[#385666] hover:bg-[#2a4552]'
+                  }`}
+                >
+                  <ArrowDown size={16} />
+                  <span>Newest</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSortBy('oldest')}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    sortBy === 'oldest' 
+                      ? 'bg-[#EAA632] text-[#192937]' 
+                      : 'bg-[#385666] hover:bg-[#2a4552]'
+                  }`}
+                >
+                  <ArrowUp size={16} />
+                  <span>Oldest</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSortBy('popular')}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    sortBy === 'popular' 
+                      ? 'bg-[#EAA632] text-[#192937]' 
+                      : 'bg-[#385666] hover:bg-[#2a4552]'
+                  }`}
+                >
+                  <Star size={16} />
+                  <span>Popular</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setSearchQuery('')
+                    setSortBy('newest')
+                  }}
+                  className="px-4 py-2 rounded-lg bg-[#385666] hover:bg-[#2a4552] flex items-center gap-2"
+                >
+                  <X size={16} />
+                  <span>Reset</span>
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex justify-center items-center min-h-[50vh]">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#EAA632]"></div>
+            <span className="sr-only">Loading...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <div className="bg-[#D94B2B]/20 p-6 rounded-xl inline-block">
+              <h2 className="text-xl font-bold mb-2">Error Loading Videos</h2>
+              <p className="mb-4">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="bg-[#EAA632] text-[#192937] px-4 py-2 rounded-lg font-medium hover:bg-[#d6942a]"
               >
-                <motion.h1 
-                  className="text-4xl md:text-6xl font-bold mb-4 leading-tight"
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : filteredVideos.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="bg-[#385666]/20 p-6 rounded-xl inline-block">
+              <h2 className="text-xl font-bold mb-2">No Episodes Found</h2>
+              <p className="mb-4">Try adjusting your search or filters</p>
+              <button 
+                onClick={() => {
+                  setSearchQuery('')
+                  setSortBy('newest')
+                }}
+                className="bg-[#EAA632] text-[#192937] px-4 py-2 rounded-lg font-medium hover:bg-[#d6942a]"
+              >
+                Reset Filters
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredVideos.map((video) => (
+                <motion.div
+                  key={video.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-[#192937]/50 backdrop-blur-sm rounded-xl overflow-hidden border border-[#385666] hover:border-[#EAA632] transition-all duration-300 hover:shadow-lg hover:shadow-[#EAA632]/20"
                 >
-                  <span className="block text-[#EAA632]">ወቸው GOOD</span>
-                  <span className="text-white">የአዲሱ ትውልድ �ድምፅ</span>
-                </motion.h1>
-                
-                <motion.div 
-                  className="text-xl md:text-2xl mb-8 max-w-2xl space-y-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <p>Ethiopia's most vibrant podcast channel filled with laughter, experiences, and ideas</p>
-                  <p className="text-[#EAA632] font-medium">The voice of the new generation!</p>
-                </motion.div>
-              </motion.div>
-              
-              {/* Stats with animations */}
-              {channelStats && (
-                <motion.div 
-                  className="flex flex-wrap gap-6 mb-8"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.8 }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-[#EAA632] p-2 rounded-full">
-                      <Eye className="text-white" size={24} />
-                    </div>
-                    <div>
-                      <span className="text-2xl font-bold block">{formatNumber(parseInt(channelStats.subscriberCount))}</span>
-                      <span className="text-sm opacity-90">Subscribers</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="bg-[#D94B2B] p-2 rounded-full">
-                      <Play className="text-white" size={24} />
-                    </div>
-                    <div>
-                      <span className="text-2xl font-bold block">{formatNumber(parseInt(channelStats.viewCount))}</span>
-                      <span className="text-sm opacity-90">Total Views</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="bg-[#385666] p-2 rounded-full">
-                      <MessageCircle className="text-white" size={24} />
-                    </div>
-                    <div>
-                      <span className="text-2xl font-bold block">{formatNumber(parseInt(channelStats.videoCount))}</span>
-                      <span className="text-sm opacity-90">Total Videos</span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0, ease: "easeOut" }}
-                className="flex flex-wrap gap-4"
-              >
-                <button className={`bg-[#EAA632] text-white px-6 py-3 rounded-full font-bold 
-                  hover:bg-[#d6942a] transition-all shadow-lg flex items-center gap-2`}>
-                  <Play size={18} /> Watch Latest Episode
-                </button>
-                
-                <button className={`bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium 
-                  hover:bg-white/10 transition-all flex items-center gap-2`}>
-                  <Heart size={18} /> Subscribe
-                </button>
-              </motion.div>
-            </div>
-            
-            <motion.div 
-              className="flex-1 flex justify-center"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <div className="relative">
-                <div className="absolute -inset-4 bg-[#EAA632]/30 rounded-2xl blur-xl"></div>
-                <div className="bg-gradient-to-br from-[#EAA632] to-[#D94B2B] p-1 rounded-2xl relative overflow-hidden">
-                  <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 lg:h-96" />
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-        
-        {/* Scroll indicator */}
-        <motion.div 
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center"
-          animate={{ y: [0, 10, 0] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-        >
-          <span className="text-sm mb-2">Explore Episodes</span>
-          <ChevronDown className="animate-bounce" />
-        </motion.div>
-      </motion.div>
-
-      {/* Main Content */}
-      <div className="py-12 px-4 max-w-7xl mx-auto">
-        {/* Sorting Controls */}
-        <motion.div 
-          className="flex flex-wrap gap-3 mb-8 sticky top-4 z-10 py-2 bg-white/80 dark:bg-[#0F1A24]/80 backdrop-blur-sm rounded-xl"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, ease: "easeOut" }}
-        >
-          <button 
-            onClick={() => setSortBy('newest')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2
-              ${sortBy === 'newest' 
-                ? 'bg-[#EAA632] text-white shadow-md' 
-                : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700'}`}
-          >
-            Newest First
-          </button>
-          
-          <button 
-            onClick={() => setSortBy('oldest')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2
-              ${sortBy === 'oldest' 
-                ? 'bg-[#EAA632] text-white shadow-md' 
-                : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700'}`}
-          >
-            Oldest First
-          </button>
-          
-          <button 
-            onClick={() => setSortBy('popularity')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2
-              ${sortBy === 'popularity' 
-                ? 'bg-[#EAA632] text-white shadow-md' 
-                : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700'}`}
-          >
-            Most Popular
-          </button>
-          
-          <button 
-            onClick={() => setSortBy('likes')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2
-              ${sortBy === 'likes' 
-                ? 'bg-[#EAA632] text-white shadow-md' 
-                : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700'}`}
-          >
-            <Heart size={16} /> Most Liked
-          </button>
-          
-          <button 
-            onClick={() => setSortBy('comments')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2
-              ${sortBy === 'comments' 
-                ? 'bg-[#EAA632] text-white shadow-md' 
-                : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700'}`}
-          >
-            <MessageCircle size={16} /> Most Comments
-          </button>
-        </motion.div>
-
-        {/* Stats Summary */}
-        <motion.div 
-          className="mb-8 bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Channel Insights</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-[#F0F4F8] dark:bg-neutral-800 p-4 rounded-xl">
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Total Videos</div>
-              <div className="text-2xl font-bold">{channelStats ? formatNumber(parseInt(channelStats.videoCount)) : '0'}</div>
-            </div>
-            <div className="bg-[#F0F4F8] dark:bg-neutral-800 p-4 rounded-xl">
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Oldest Video</div>
-              <div className="text-lg font-bold">
-                {allVideos.length > 0 
-                  ? isClient ? formatPublishedDate(allVideos[0].publishedAt) : 'Loading...' 
-                  : 'N/A'}
-              </div>
-            </div>
-            <div className="bg-[#F0F4F8] dark:bg-neutral-800 p-4 rounded-xl">
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Most Views</div>
-              <div className="text-lg font-bold">
-                {allVideos.length > 0 
-                  ? formatNumber(Math.max(...allVideos.map(v => v.views))) 
-                  : '0'}
-              </div>
-            </div>
-            <div className="bg-[#F0F4F8] dark:bg-neutral-800 p-4 rounded-xl">
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Most Likes</div>
-              <div className="text-lg font-bold">
-                {allVideos.length > 0 
-                  ? formatNumber(Math.max(...allVideos.map(v => v.likes))) 
-                  : '0'}
-              </div>
-            </div>
-            <div className="bg-[#F0F4F8] dark:bg-neutral-800 p-4 rounded-xl">
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Most Comments</div>
-              <div className="text-lg font-bold">
-                {allVideos.length > 0 
-                  ? formatNumber(Math.max(...allVideos.map(v => v.comments))) 
-                  : '0'}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Video Grid */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <AnimatePresence>
-            {currentVideos.map((video) => (
-              <motion.a
-                key={video.id}
-                href={`https://www.youtube.com/watch?v=${video.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block group"
-                variants={itemVariants}
-                whileHover="hover"
-                whileTap="tap"
-                layout
-              >
-                <div className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 h-full flex flex-col">
-                  {/* Thumbnail with duration badge */}
+                  {/* Video Thumbnail/Player */}
                   <div className="relative aspect-video">
-                    <div className="relative h-full w-full overflow-hidden">
-                      <img
-                        src={video.thumbnail}
-                        alt={video.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      
-                      {/* Gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                      
-                      <div className="absolute bottom-3 right-3 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                        {video.duration}
+                    {playingVideoId === video.id ? (
+                      <div className="w-full h-full">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${video.id}?autoplay=1`}
+                          title={video.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full"
+                        />
                       </div>
-                    </div>
-                    
-                    {/* Play button overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className={`w-14 h-14 rounded-full flex items-center justify-center bg-[#EAA632]`}>
-                        <Play className="h-6 w-6 text-white ml-1 fill-current" />
+                    ) : (
+                      <div className="relative w-full h-full cursor-pointer" onClick={() => handlePlayVideo(video.id)}>
+                        <img 
+                          src={video.thumbnail} 
+                          alt={video.title} 
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center">
+                          <div className="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded-md text-sm">
+                            {video.duration}
+                          </div>
+                          <div className="w-14 h-14 rounded-full bg-[#EAA632] flex items-center justify-center">
+                            <Play className="text-white ml-1" size={24} />
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   
                   {/* Video Info */}
-                  <div className="p-4 flex-grow flex flex-col">
-                    <h3 className="font-bold text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#EAA632] transition-colors">
-                      {video.title}
-                    </h3>
-                    
-                    <div className="mt-auto">
-                      {/* Stats row */}
-                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4" />
-                          <span>{formatNumber(video.views)}</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <Heart className="h-4 w-4" />
-                          <span>{formatNumber(video.likes)}</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <MessageCircle className="h-4 w-4" />
-                          <span>{formatNumber(video.comments)}</span>
-                        </div>
-                        
-                        <span>{isClient ? formatPublishedDate(video.publishedAt) : 'Loading...'}</span>
+                  <div className="p-4">
+                    <h3 className="font-bold text-lg mb-2 line-clamp-2 h-14">{video.title}</h3>
+                    <div className="flex justify-between items-center text-sm text-gray-300">
+                      <div className="flex items-center gap-1">
+                        <Eye size={14} />
+                        <span>{video.viewCount} views</span>
                       </div>
+                      <span>
+                        {formatDate(video.publishedAt)}
+                      </span>
+                    </div>
+                    
+                    <div className="mt-4 flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handlePlayVideo(video.id)}
+                        className={`flex-1 text-center py-2 rounded-lg ${
+                          playingVideoId === video.id
+                            ? 'bg-[#D94B2B] hover:bg-[#c53a1f]'
+                            : 'bg-[#385666] hover:bg-[#2a4552]'
+                        }`}
+                      >
+                        {playingVideoId === video.id ? 'Stop' : 'Play'}
+                      </motion.button>
+                      
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="p-2 bg-[#385666] rounded-lg hover:bg-[#2a4552]"
+                      >
+                        <Heart size={18} />
+                      </motion.button>
                     </div>
                   </div>
-                </div>
-              </motion.a>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Load More Button */}
-        {!showAllVideos && currentVideos.length < sortedVideos.length && (
-          <motion.div 
-            className="mt-12 flex justify-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <button 
-              onClick={loadMoreVideos}
-              className={`px-8 py-3.5 rounded-xl font-medium transition-all transform hover:scale-105
-                bg-gradient-to-r from-[#EAA632] to-[#D94B2B] text-white shadow-lg flex items-center gap-2`}
-            >
-              Load More Videos
-              <ChevronDown className="h-5 w-5" />
-            </button>
-          </motion.div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {/* Pagination/Info */}
+            <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="text-sm text-gray-300">
+                Showing {filteredVideos.length} of {videos.length} episodes
+              </div>
+              
+              <div className="flex gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 bg-[#385666] rounded-lg hover:bg-[#2a4552] flex items-center gap-2"
+                >
+                  <ChevronDown size={16} />
+                  <span>Load More</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={scrollToTop}
+                  className="px-4 py-2 bg-[#EAA632] text-[#192937] rounded-lg hover:bg-[#d6942a] flex items-center gap-2"
+                >
+                  <ArrowUp size={16} />
+                  <span>Back to Top</span>
+                </motion.button>
+              </div>
+            </div>
+          </>
         )}
-
-        {/* All Videos Message */}
-        {showAllVideos && (
-          <div className="mt-12 text-center py-8 rounded-2xl bg-gradient-to-r from-[#F0F4F8] to-[#e6edf5] dark:from-[#1a2836] dark:to-[#192937]">
-            <p className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-4">
-              You've viewed all {sortedVideos.length} episodes!
-            </p>
-            <button 
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="px-6 py-2.5 rounded-xl bg-[#385666] text-white hover:bg-[#2a4552] transition-colors"
-            >
-              Back to Top
-            </button>
+      </main>
+      
+      {/* Footer */}
+      <footer className="bg-[#192937] border-t border-[#385666] py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="text-[#EAA632]">ወቸው GOOD</span> Podcast
+              </h2>
+              <p className="text-gray-400 mt-2 max-w-md">
+                Ethiopia's most vibrant podcast channel filled with laughter, experiences, and ideas. 
+                The voice of the new generation!
+              </p>
+            </div>
+            
+            <div className="flex gap-4">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 rounded-full bg-[#385666] flex items-center justify-center hover:bg-[#2a4552]"
+              >
+                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 rounded-full bg-[#385666] flex items-center justify-center hover:bg-[#2a4552]"
+              >
+                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 rounded-full bg-[#385666] flex items-center justify-center hover:bg-[#2a4552]"
+              >
+                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-6 h-6" />
+              </motion.button>
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Brand Footer */}
-      <div className="mt-16 py-10 px-4 bg-[#192937] text-white text-center">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h2 className="text-3xl font-bold mb-4">ወቸው GOOD</h2>
-            <p className="text-xl max-w-2xl mx-auto mb-8">
-              Ethiopia's most vibrant podcast - where ideas flourish and laughter connects generations
-            </p>
-            <div className="text-[#EAA632] text-2xl font-bold mb-6">
-              የአዲሱ ትውልድ ድምፅ!
-            </div>
-            <div className="flex justify-center gap-6">
-              <button className="bg-[#EAA632] hover:bg-[#d6942a] px-6 py-2.5 rounded-full transition-colors">
-                Subscribe
-              </button>
-              <button className="border-2 border-white hover:bg-white/10 px-6 py-2.5 rounded-full transition-colors">
-                Contact Us
-              </button>
-            </div>
-          </motion.div>
+          
+          <div className="mt-8 pt-6 border-t border-[#385666] text-center text-gray-500 text-sm">
+            © {new Date().getFullYear()} ወቸው GOOD Podcast. All rights reserved.
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   )
 }
