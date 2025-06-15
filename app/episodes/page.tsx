@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Play, Heart, ChevronDown, Search, Filter, X, ArrowDown, ArrowUp, Star, Eye } from 'lucide-react'
+import { Play, Heart, ChevronDown, Search, Filter, X, ArrowDown, ArrowUp, Star, Eye, Loader } from 'lucide-react'
 
 const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY
 const CHANNEL_ID = 'UCJD-UtyBgYWqvmp_lknn7Lg'
@@ -12,7 +12,7 @@ type Video = {
   title: string
   thumbnail: string
   publishedAt: string
-  viewCount: string
+  rawViewCount: number   // Store raw count for proper sorting
   duration: string
 }
 
@@ -58,6 +58,34 @@ const formatDuration = (duration: string): string => {
   }
 }
 
+// Format date to relative time
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  
+  let interval = Math.floor(seconds / 31536000)
+  if (interval > 1) return `${interval} years ago`
+  if (interval === 1) return '1 year ago'
+  
+  interval = Math.floor(seconds / 2592000)
+  if (interval > 1) return `${interval} months ago`
+  if (interval === 1) return '1 month ago'
+  
+  interval = Math.floor(seconds / 86400)
+  if (interval > 1) return `${interval} days ago`
+  if (interval === 1) return '1 day ago'
+  
+  interval = Math.floor(seconds / 3600)
+  if (interval > 1) return `${interval} hours ago`
+  if (interval === 1) return '1 hour ago'
+  
+  interval = Math.floor(seconds / 60)
+  if (interval > 1) return `${interval} minutes ago`
+  
+  return 'Just now'
+}
+
 export default function EpisodesPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,67 +94,102 @@ export default function EpisodesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [fetchingMore, setFetchingMore] = useState(false)
+  const [hasFetchedAll, setHasFetchedAll] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch videos from the channel
+  const fetchVideoPage = async (pageToken: string | null = null): Promise<{ videos: Video[], nextPageToken: string | null }> => {
+    try {
+      // Build API URL
+      const params = new URLSearchParams({
+        part: 'snippet',
+        channelId: CHANNEL_ID,
+        maxResults: '50',
+        order: 'date',
+        type: 'video',
+        key: API_KEY || '',
+        ...(pageToken ? { pageToken } : {})
+      })
+      
+      // Get video IDs and basic info
+      const searchRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?${params}`
+      )
+      const searchData = await searchRes.json()
+      
+      // Get video IDs
+      const videoIds = searchData.items
+        .map((item: any) => item.id.videoId)
+        .filter((id: string) => id) // Filter out any undefined
+        .join(',')
+      
+      // Get video details
+      const videosRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
+      )
+      const videosData = await videosRes.json()
+      
+      // Format videos data with error handling
+      const formattedVideos = videosData.items.map((item: any) => {
+        // Handle missing view count
+        const rawViewCount = item.statistics?.viewCount ? 
+          parseInt(item.statistics.viewCount) : 
+          0
+        
+        // Handle missing duration
+        const duration = item.contentDetails?.duration ? 
+          formatDuration(item.contentDetails.duration) : 
+          '0:00'
+        
+        return {
+          id: item.id,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails?.medium?.url || 
+                   item.snippet.thumbnails?.default?.url || 
+                   '/default-thumbnail.jpg',
+          publishedAt: item.snippet.publishedAt,
+          rawViewCount,
+          duration
+        }
+      })
+      
+      return {
+        videos: formattedVideos,
+        nextPageToken: searchData.nextPageToken || null
+      }
+    } catch (err) {
+      throw new Error('Failed to fetch videos')
+    }
+  }
+
+  // Fetch all videos recursively
+  const fetchAllVideos = async (pageToken: string | null = null, accumulatedVideos: Video[] = []): Promise<Video[]> => {
+    try {
+      const { videos: newVideos, nextPageToken } = await fetchVideoPage(pageToken)
+      const allVideos = [...accumulatedVideos, ...newVideos]
+      
+      if (nextPageToken) {
+        return fetchAllVideos(nextPageToken, allVideos)
+      }
+      
+      return allVideos
+    } catch (err) {
+      throw err
+    }
+  }
+
+  // Initial load of all videos
   useEffect(() => {
-    const fetchVideos = async () => {
+    const loadVideos = async () => {
       try {
         setLoading(true)
         setError(null)
         
-        // Get the uploads playlist ID
-        const channelRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${CHANNEL_ID}&key=${API_KEY}`
-        )
-        const channelData = await channelRes.json()
-        const uploadsId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
-        
-        if (!uploadsId) {
-          setError('Uploads playlist not found')
-          return
-        }
-
-        // Get videos from the playlist
-        const playlistRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsId}&key=${API_KEY}`
-        )
-        const playlistData = await playlistRes.json()
-        
-        // Get video IDs for fetching details
-        const videoIds = playlistData.items.map((item: any) => item.snippet.resourceId.videoId).join(',')
-        
-        // Get video details (including duration and view count)
-        const videosRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
-        )
-        const videosData = await videosRes.json()
-        
-        // Format videos data with error handling
-        const formattedVideos = videosData.items.map((item: any) => {
-          // Handle missing view count
-          const viewCount = item.statistics?.viewCount ? 
-            formatNumber(parseInt(item.statistics.viewCount)) : 
-            'N/A'
-          
-          // Handle missing duration
-          const duration = item.contentDetails?.duration ? 
-            formatDuration(item.contentDetails.duration) : 
-            '0:00'
-          
-          return {
-            id: item.id,
-            title: item.snippet.title,
-            thumbnail: item.snippet.thumbnails?.medium?.url || 
-                     item.snippet.thumbnails?.default?.url || 
-                     '/default-thumbnail.jpg',
-            publishedAt: item.snippet.publishedAt,
-            viewCount,
-            duration
-          }
-        })
-        
-        setVideos(formattedVideos)
+        const allVideos = await fetchAllVideos()
+        setVideos(allVideos)
+        setHasFetchedAll(true)
       } catch (err) {
         setError('Failed to fetch videos. Please check your network connection and try again.')
         console.error(err)
@@ -134,8 +197,8 @@ export default function EpisodesPage() {
         setLoading(false)
       }
     }
-
-    fetchVideos()
+    
+    loadVideos()
   }, [])
 
   // Filter and sort videos
@@ -159,12 +222,7 @@ export default function EpisodesPage() {
         new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
       )
     } else if (sortBy === 'popular') {
-      result.sort((a, b) => {
-        // Handle non-numeric view counts
-        const aViews = a.viewCount === 'N/A' ? 0 : parseInt(a.viewCount.replace(/[^0-9]/g, ''))
-        const bViews = b.viewCount === 'N/A' ? 0 : parseInt(b.viewCount.replace(/[^0-9]/g, ''))
-        return bViews - aViews
-      })
+      result.sort((a, b) => b.rawViewCount - a.rawViewCount)
     }
     
     return result
@@ -183,6 +241,14 @@ export default function EpisodesPage() {
       setPlayingVideoId(null)
     } else {
       setPlayingVideoId(videoId)
+      
+      // Scroll to video when playing
+      setTimeout(() => {
+        const element = document.getElementById(`video-${videoId}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }, 100)
     }
   }
 
@@ -191,21 +257,9 @@ export default function EpisodesPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Format date to avoid hydration mismatch
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      })
-    } catch (e) {
-      return dateString.substring(0, 10) // Fallback to YYYY-MM-DD
-    }
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#192937] to-[#2a4552] text-white">
+      <div className="max-w-7xl mx-auto px-4"><br /><br /><br /></div> {/* i use this cuz i want to add 30px top gap to the main content */}
       {/* Header */}
       <header className="sticky top-0 z-10 bg-[#192937]/90 backdrop-blur-md border-b border-[#385666]">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -323,12 +377,13 @@ export default function EpisodesPage() {
         )}
       </AnimatePresence>
       
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      {/* Main Content with 30px top gap */}
+      <main className="max-w-7xl mx-auto px-4 py-8 pt-[30px]">
         {loading ? (
           <div className="flex justify-center items-center min-h-[50vh]">
             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#EAA632]"></div>
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">Loading all videos...</span>
+            <p className="ml-4">Fetching all 143 videos...</p>
           </div>
         ) : error ? (
           <div className="text-center py-12">
@@ -365,6 +420,7 @@ export default function EpisodesPage() {
               {filteredVideos.map((video) => (
                 <motion.div
                   key={video.id}
+                  id={`video-${video.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
@@ -388,12 +444,13 @@ export default function EpisodesPage() {
                           src={video.thumbnail} 
                           alt={video.title} 
                           className="w-full h-full object-cover"
+                          loading="lazy"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center">
                           <div className="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded-md text-sm">
                             {video.duration}
                           </div>
-                          <div className="w-14 h-14 rounded-full bg-[#EAA632] flex items-center justify-center">
+                          <div className="w-14 h-14 rounded-full bg-[#EAA632] flex items-center justify-center hover:scale-105 transition-transform">
                             <Play className="text-white ml-1" size={24} />
                           </div>
                         </div>
@@ -407,7 +464,7 @@ export default function EpisodesPage() {
                     <div className="flex justify-between items-center text-sm text-gray-300">
                       <div className="flex items-center gap-1">
                         <Eye size={14} />
-                        <span>{video.viewCount} views</span>
+                        <span>{formatNumber(video.rawViewCount)} views</span>
                       </div>
                       <span>
                         {formatDate(video.publishedAt)}
@@ -448,15 +505,6 @@ export default function EpisodesPage() {
               </div>
               
               <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 bg-[#385666] rounded-lg hover:bg-[#2a4552] flex items-center gap-2"
-                >
-                  <ChevronDown size={16} />
-                  <span>Load More</span>
-                </motion.button>
-                
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

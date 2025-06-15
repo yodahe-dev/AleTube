@@ -20,7 +20,7 @@ const team = [
     accentColor: "from-[#0052B4] to-[#00247D]",
     flag: "🇺🇸",
     specialties: ["Cultural Commentary", "Storytelling", "Interviewing"],
-    episodeCount: 87
+    episodeCount: 92
   },
   {
     name: "Mahider Kebede",
@@ -28,17 +28,17 @@ const team = [
     bio: "Brings insightful questions that spark deep conversations. Balances intellect with warmth and relatable humor.",
     img: "/mahiderkebede.png",
     ig: "https://www.instagram.com/mahider.k",
-    tiktok: "https://www.tiktok.com/@mahider_k", 
+    tiktok: "https://www.tiktok.com/@mahider_k",
     country: "Ethiopia",
     accentColor: "from-[#078930] to-[#FCDD09]",
     flag: "🇪🇹",
     specialties: ["Social Commentary", "Youth Perspectives", "Community Building"],
-    episodeCount: 64
+    episodeCount: 80
   },
   {
     name: "YONZIMA",
     role: "Creative Director & Host",
-    bio: "Visionary behind the show's visual identity. Brings raw energy and audio production expertise to every episode.",
+    bio: "Brings raw energy and audio production expertise to every episode.",
     img: "/yonzima.png",
     ig: "https://www.instagram.com/yonzima_",
     tiktok: "https://www.tiktok.com/@yonzima",
@@ -46,8 +46,8 @@ const team = [
     country: "Ethiopia",
     accentColor: "from-[#078930] to-[#FCDD09]",
     flag: "🇪🇹",
-    specialties: ["Visual Design", "Audio Production", "Creative Direction"],
-    episodeCount: 72
+    specialties: ["Audio Production", "Creative Direction"],
+    episodeCount: 100
   },
   {
     name: "Bereket",
@@ -61,7 +61,7 @@ const team = [
     accentColor: "from-[#078930] to-[#FCDD09]",
     flag: "🇪🇹",
     specialties: ["Sound Design", "Comedy", "Production"],
-    episodeCount: 68
+    episodeCount: 99.99
   },
   {
     name: "Dania Awet",
@@ -74,7 +74,7 @@ const team = [
     accentColor: "from-[#0052B4] to-[#00247D]",
     flag: "🇺🇸",
     specialties: ["Diaspora Insights", "Social Analysis", "Cultural Critique"],
-    episodeCount: 42
+    episodeCount: 70
   },
   {
     name: "Leyu Alazar",
@@ -87,7 +87,7 @@ const team = [
     accentColor: "from-[#0052B4] to-[#00247D]",
     flag: "🇺🇸",
     specialties: ["Trend Analysis", "Personality Hosting", "Cultural Connections"],
-    episodeCount: 31
+    episodeCount: 65
   },
 ];
 
@@ -95,7 +95,7 @@ export default function TeamPage() {
   const [activeMember, setActiveMember] = useState<typeof team[number] | null>(null);
   const [isGridView, setIsGridView] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
-  
+
   const ethiopiaTeam = team.filter(member => member.country === "Ethiopia");
   const usaTeam = team.filter(member => member.country === "USA");
 
@@ -123,11 +123,11 @@ export default function TeamPage() {
         <div className="absolute top-[10%] left-[15%] w-[40vw] h-[40vw] bg-[#EAA632]/5 rounded-full blur-[100px] animate-pulse-slow"></div>
         <div className="absolute bottom-[5%] right-[10%] w-[30vw] h-[30vw] bg-[#69C9D0]/5 rounded-full blur-[100px] animate-pulse-medium"></div>
         <div className="absolute top-[40%] right-[25%] w-[20vw] h-[20vw] bg-[#078930]/5 rounded-full blur-[100px] animate-pulse-fast"></div>
-        
+
         {/* Grid overlay */}
         <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-[length:100px_100px] opacity-[0.03]"></div>
       </div>
-      
+
       {/* Floating particles */}
       {[...Array(30)].map((_, i) => (
         <motion.div
@@ -151,7 +151,7 @@ export default function TeamPage() {
           }}
         />
       ))}
-      
+
       <div className="max-w-7xl mx-auto">
         {/* Header with view toggle */}
         <motion.div
@@ -161,79 +161,59 @@ export default function TeamPage() {
           className="text-center max-w-4xl mx-auto mb-16 relative"
         >
           <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-[#EAA632] to-[#FFD580] rounded-full"></div>
-          
-          <motion.h1 
-            className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#EAA632] to-[#FFD580] drop-shadow-2xl mb-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            Meet the Visionaries
-          </motion.h1>
-          
-          <motion.p 
-            className="text-3xl md:text-4xl font-semibold text-[#D6D6D6] mb-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            የቡድኑ አባላት ይህ ናቸው
-          </motion.p>
-          
-          <motion.div 
-            className="mt-6 text-lg text-[#a0aec0] leading-relaxed max-w-2xl mx-auto"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <p>The creative force behind Africa's fastest-growing podcast</p>
-            <p className="mt-2">ይህ ቻናል አስቂኝና የእውነተኛ ውይይቶች ነው።</p>
-          </motion.div>
-          
-          <motion.div 
+        </motion.div>
+
+
+
+
+        {/* ETHIOPIAN TEAM FIRST - MOST POPULAR */}
+        <EthiopiaTeamSection
+          team={ethiopiaTeam}
+          isGridView={isGridView}
+          onMemberClick={handleMemberClick}
+        />
+
+
+        <div className="p-4 md:p-8 lg:p-16">
+          <motion.div
             className="flex justify-center mt-10 space-x-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            <button 
+            <button
               onClick={() => setIsGridView(true)}
-              className={`px-6 py-2 rounded-full transition-all ${
-                isGridView 
-                  ? "bg-gradient-to-r from-[#EAA632] to-[#FFD580] text-black font-bold" 
+              className={`px-6 py-2 rounded-full transition-all ${isGridView
+                  ? "bg-gradient-to-r from-[#EAA632] to-[#FFD580] text-black font-bold"
                   : "bg-[#1e293b] text-[#a0aec0] hover:bg-[#2d3748]"
-              }`}
+                }`}
             >
               Grid View
             </button>
-            <button 
+            <button
               onClick={() => setIsGridView(false)}
-              className={`px-6 py-2 rounded-full transition-all ${
-                !isGridView 
-                  ? "bg-gradient-to-r from-[#078930] to-[#FCDD09] text-black font-bold" 
+              className={`px-6 py-2 rounded-full transition-all ${!isGridView
+                  ? "bg-gradient-to-r from-[#078930] to-[#FCDD09] text-black font-bold"
                   : "bg-[#1e293b] text-[#a0aec0] hover:bg-[#2d3748]"
-              }`}
+                }`}
             >
               List View
             </button>
           </motion.div>
-        </motion.div>
+        </div>
 
-        {/* ETHIOPIAN TEAM FIRST - MOST POPULAR */}
-        <EthiopiaTeamSection 
-          team={ethiopiaTeam} 
-          isGridView={isGridView} 
-          onMemberClick={handleMemberClick}
-        />
-        
+
         {/* USA TEAM SECTION */}
-        <USATeamSection 
-          team={usaTeam} 
-          isGridView={isGridView} 
+        <USATeamSection
+          team={usaTeam}
+          isGridView={isGridView}
           onMemberClick={handleMemberClick}
         />
       </div>
-      
+
+
+
+
       {/* Member Detail View */}
       <AnimatePresence>
         {activeMember && (
@@ -244,14 +224,14 @@ export default function TeamPage() {
             className="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 flex items-center justify-center p-4"
             onClick={closeDetailView}
           >
-            <motion.div 
+            <motion.div
               className="relative max-w-4xl w-full bg-gradient-to-br from-[#1a202c] to-[#2d3748] rounded-3xl overflow-hidden shadow-2xl border border-[#EAA632]/30"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button 
+              <button
                 className="absolute top-5 right-5 text-white bg-black/30 p-2 rounded-full hover:bg-black/50 transition-all z-10"
                 onClick={closeDetailView}
               >
@@ -259,7 +239,7 @@ export default function TeamPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              
+
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="relative h-[500px]">
                   <Image
@@ -285,19 +265,19 @@ export default function TeamPage() {
                     <p className="text-xl text-[#FFD580] mt-1">{activeMember.role}</p>
                   </div>
                 </div>
-                
+
                 <div className="p-8">
                   <div className="mb-6">
                     <h3 className="text-2xl font-bold text-[#FFD580] mb-3">About</h3>
                     <p className="text-[#cbd5e0] leading-relaxed">{activeMember.bio}</p>
                   </div>
-                  
+
                   <div className="mb-6">
                     <h3 className="text-2xl font-bold text-[#FFD580] mb-3">Specialties</h3>
                     <div className="flex flex-wrap gap-2">
                       {activeMember.specialties.map((specialty, i) => (
-                        <span 
-                          key={i} 
+                        <span
+                          key={i}
                           className="bg-[#2d3748] border border-[#4a5568] px-3 py-1 rounded-full text-sm"
                         >
                           {specialty}
@@ -305,24 +285,24 @@ export default function TeamPage() {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="mb-6">
                     <h3 className="text-2xl font-bold text-[#FFD580] mb-3">Episode Contributions</h3>
                     <div className="w-full bg-[#2d3748] rounded-full h-4">
-                      <div 
-                        className="bg-gradient-to-r from-[#EAA632] to-[#FFD580] h-4 rounded-full" 
+                      <div
+                        className="bg-gradient-to-r from-[#EAA632] to-[#FFD580] h-4 rounded-full"
                         style={{ width: `${(activeMember.episodeCount / 100) * 100}%` }}
                       ></div>
                     </div>
                     <p className="mt-2 text-[#a0aec0]">{activeMember.episodeCount}+ episodes</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-2xl font-bold text-[#FFD580] mb-3">Connect</h3>
                     <div className="flex gap-4">
-                      <a 
-                        href={activeMember.ig} 
-                        target="_blank" 
+                      <a
+                        href={activeMember.ig}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="group"
                         aria-label={`${activeMember.name} Instagram`}
@@ -331,9 +311,9 @@ export default function TeamPage() {
                           <Instagram className="text-white" size={24} />
                         </div>
                       </a>
-                      <a 
-                        href={activeMember.tiktok} 
-                        target="_blank" 
+                      <a
+                        href={activeMember.tiktok}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="group"
                         aria-label={`${activeMember.name} TikTok`}
@@ -353,7 +333,7 @@ export default function TeamPage() {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       <style jsx global>{`
         .hexagon-mask {
           -webkit-clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
@@ -438,15 +418,17 @@ function EthiopiaTeamSection({ team, isGridView, onMemberClick }: EthiopiaTeamSe
         </p>
         <div className="h-px bg-gradient-to-r from-transparent via-[#078930] to-transparent w-full mt-8"></div>
       </div>
-      
+
+
+
       {isGridView ? (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {team.map((member, i) => (
-            <TeamMemberCard 
-              key={member.name} 
-              member={member} 
-              index={i} 
-              country="Ethiopia" 
+            <TeamMemberCard
+              key={member.name}
+              member={member}
+              index={i}
+              country="Ethiopia"
               onClick={() => onMemberClick(member)}
             />
           ))}
@@ -454,10 +436,10 @@ function EthiopiaTeamSection({ team, isGridView, onMemberClick }: EthiopiaTeamSe
       ) : (
         <div className="space-y-6">
           {team.map((member, i) => (
-            <TeamListCard 
-              key={member.name} 
-              member={member} 
-              index={i} 
+            <TeamListCard
+              key={member.name}
+              member={member}
+              index={i}
               onClick={() => onMemberClick(member)}
             />
           ))}
@@ -499,15 +481,15 @@ function USATeamSection({ team, isGridView, onMemberClick }: USATeamSectionProps
         </p>
         <div className="h-px bg-gradient-to-r from-transparent via-[#0052B4] to-transparent w-full mt-8"></div>
       </div>
-      
+
       {isGridView ? (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {team.map((member, i) => (
-            <TeamMemberCard 
-              key={member.name} 
-              member={member} 
-              index={i} 
-              country="USA" 
+            <TeamMemberCard
+              key={member.name}
+              member={member}
+              index={i}
+              country="USA"
               onClick={() => onMemberClick(member)}
             />
           ))}
@@ -515,10 +497,10 @@ function USATeamSection({ team, isGridView, onMemberClick }: USATeamSectionProps
       ) : (
         <div className="space-y-6">
           {team.map((member, i) => (
-            <TeamListCard 
-              key={member.name} 
-              member={member} 
-              index={i} 
+            <TeamListCard
+              key={member.name}
+              member={member}
+              index={i}
               onClick={() => onMemberClick(member)}
             />
           ))}
@@ -543,7 +525,7 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
       whileInView={{ opacity: 1, y: 0, rotate: 0 }}
       viewport={{ once: true, margin: "-100px" }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
-      whileHover={{ 
+      whileHover={{
         y: -10,
         rotate: index % 2 === 0 ? 1 : -1,
       }}
@@ -553,18 +535,18 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
       <Card
         className={clsx(
           "overflow-hidden border bg-gradient-to-b from-[#1e293b]/70 to-[#1e293b]/30 backdrop-blur-lg rounded-2xl shadow-2xl h-full border-[#4a5568] hover:border-[#EAA632]/50 transition-all duration-300",
-          member.isFounder ? "border-[#EAA632]" : 
-          country === "USA" ? "border-blue-500/30" : "border-green-500/30"
+          member.isFounder ? "border-[#EAA632]" :
+            country === "USA" ? "border-blue-500/30" : "border-green-500/30"
         )}
       >
         {/* Glow effect */}
         <div className={clsx(
           "absolute top-0 left-0 w-full h-1 bg-gradient-to-r",
-          country === "USA" 
-            ? "from-[#0052B4] via-[#69C9D0] to-[#0052B4]" 
+          country === "USA"
+            ? "from-[#0052B4] via-[#69C9D0] to-[#0052B4]"
             : "from-[#078930] via-[#FCDD09] to-[#078930]"
         )}></div>
-        
+
         {/* Founder badge */}
         {member.isFounder && (
           <div className="absolute top-3 left-3 bg-gradient-to-r from-[#EAA632] to-[#ffc55c] text-black px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 shadow-lg z-20">
@@ -572,12 +554,12 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
             Founder
           </div>
         )}
-        
+
         {/* Country flag */}
         <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg z-10">
           {member.flag}
         </div>
-        
+
         <div className="relative pt-16 pb-8 flex flex-col items-center">
           {/* Hexagonal image container */}
           <div className="relative w-40 h-40 overflow-hidden hexagon-mask group mx-auto mb-6">
@@ -593,7 +575,7 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
           </div>
 
           <CardContent className="p-5 space-y-3 text-center">
-            <motion.h3 
+            <motion.h3
               className={clsx(
                 "text-2xl font-bold",
                 country === "USA" ? "text-[#89CFF0]" : "text-[#4CAF50]"
@@ -602,31 +584,31 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
             >
               {member.name}
             </motion.h3>
-            
+
             <p className="text-[#a0aec0] text-sm mt-1">{member.role}</p>
-            
+
             {member.name === "Abel Misrak" && (
               <div className="inline-flex items-center bg-[#EAA632]/20 px-3 py-1 rounded-full text-xs text-[#FFD580] mt-2">
                 <Star className="w-3 h-3 mr-1" />
                 Main Co-Founder
               </div>
             )}
-            
+
             <div className="flex justify-center gap-3 mt-4">
-                {member.specialties.slice(0, 2).map((specialty: string, i: number) => (
-                <span 
-                  key={i} 
+              {member.specialties.slice(0, 2).map((specialty: string, i: number) => (
+                <span
+                  key={i}
                   className="bg-[#2d3748] border border-[#4a5568] px-2 py-1 rounded-full text-xs"
                 >
                   {specialty}
                 </span>
-                ))}
+              ))}
             </div>
-            
+
             <div className="mt-4 flex justify-center gap-4">
-              <a 
-                href={member.ig} 
-                target="_blank" 
+              <a
+                href={member.ig}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="group"
                 aria-label={`${member.name} Instagram`}
@@ -636,9 +618,9 @@ function TeamMemberCard({ member, index, country, onClick }: TeamMemberCardProps
                   <Instagram className="text-white" size={18} />
                 </div>
               </a>
-              <a 
-                href={member.tiktok} 
-                target="_blank" 
+              <a
+                href={member.tiktok}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="group"
                 aria-label={`${member.name} TikTok`}
@@ -667,7 +649,7 @@ type TeamListCardProps = {
 
 function TeamListCard({ member, index, onClick }: TeamListCardProps) {
   const country = member.country;
-  
+
   return (
     <motion.div
       key={member.name}
@@ -675,7 +657,7 @@ function TeamListCard({ member, index, onClick }: TeamListCardProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
-      whileHover={{ 
+      whileHover={{
         y: -5,
       }}
       className="team-card bg-gradient-to-r from-[#1e293b] to-[#1a202c] backdrop-blur-lg rounded-2xl border border-[#4a5568] p-6 cursor-pointer transition-all hover:border-[#EAA632]/50"
@@ -700,7 +682,7 @@ function TeamListCard({ member, index, onClick }: TeamListCardProps) {
             {member.flag}
           </div>
         </div>
-        
+
         <div className="ml-6 flex-1">
           <div className="flex items-baseline justify-between">
             <h3 className={clsx(
@@ -715,9 +697,9 @@ function TeamListCard({ member, index, onClick }: TeamListCardProps) {
               )}
             </h3>
             <div className="flex gap-2">
-              <a 
-                href={member.ig} 
-                target="_blank" 
+              <a
+                href={member.ig}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="group"
                 aria-label={`${member.name} Instagram`}
@@ -727,9 +709,9 @@ function TeamListCard({ member, index, onClick }: TeamListCardProps) {
                   <Instagram className="text-white" size={16} />
                 </div>
               </a>
-              <a 
-                href={member.tiktok} 
-                target="_blank" 
+              <a
+                href={member.tiktok}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="group"
                 aria-label={`${member.name} TikTok`}
@@ -744,18 +726,18 @@ function TeamListCard({ member, index, onClick }: TeamListCardProps) {
               </a>
             </div>
           </div>
-          
+
           <p className="text-[#a0aec0] text-sm mt-1">{member.role}</p>
-          
+
           <p className="text-[#cbd5e0] mt-3 line-clamp-2">{member.bio}</p>
-          
+
           <div className="flex flex-wrap gap-2 mt-4">
             {member.specialties.map((specialty: string, i: number) => (
-              <span 
-              key={i} 
-              className="bg-[#2d3748] border border-[#4a5568] px-2 py-1 rounded-full text-xs"
+              <span
+                key={i}
+                className="bg-[#2d3748] border border-[#4a5568] px-2 py-1 rounded-full text-xs"
               >
-              {specialty}
+                {specialty}
               </span>
             ))}
           </div>
