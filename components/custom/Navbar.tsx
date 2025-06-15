@@ -272,10 +272,11 @@ export default function Navbar() {
     label: string;
   };
 
-  // Simplified navigation links as requested
+  // Updated navigation links with Guests
   const navLinks: NavLink[] = [
     { href: "/", label: "Home" },
     { href: "/episodes", label: "Episodes" },
+    { href: "/guests", label: "Guests" },
     { href: "/team", label: "Team" },
     { href: "/contact", label: "Contact" },
   ];
@@ -469,13 +470,19 @@ export default function Navbar() {
                         <p className="text-gray-400 text-sm">Offline - Check back soon</p>
                       )}
                       
-                      <Button 
-                        size="sm" 
-                        className="mt-3 w-full bg-[#EAA632] hover:bg-[#d18a1a] text-[#192937]"
-                        onClick={() => router.push("https://youtube.com/channel/" + CHANNEL_ID)}
+                      <a
+                        href={`https://youtube.com/channel/${CHANNEL_ID}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "mt-3 w-full bg-[#EAA632] hover:bg-[#d18a1a] text-[#192937]",
+                          "inline-flex items-center justify-center rounded-md text-sm font-medium",
+                          "transition-colors focus:outline-none focus:ring-2 focus:ring-[#385666] focus:ring-offset-2",
+                          "h-9 px-4 py-2"
+                        )}
                       >
                         Watch Now
-                      </Button>
+                      </a>
                     </motion.div>
                   )}
                 </AnimatePresence>

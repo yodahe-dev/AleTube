@@ -372,14 +372,14 @@ export default function HeroSection() {
                 </motion.button>
               )}
               
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium 
-                  hover:bg-white/10 transition-all flex items-center gap-2`}
-              >
-                <Heart size={18} /> Subscribe
-              </motion.button>
+                <a
+                href="/contact"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-[#EAA632] bg-[#EAA632]/10 text-[#EAA632] font-semibold hover:bg-[#EAA632]/20 hover:text-white hover:border-white transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-[#EAA632] focus:ring-offset-2"
+                title="Contact us to sponsor"
+                >
+                <Heart className="text-[#EAA632] group-hover:text-white transition-colors" size={18} />
+                Sponsor Us
+                </a>
             </motion.div>
           </div>
           

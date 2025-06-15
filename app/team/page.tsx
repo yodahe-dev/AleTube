@@ -61,7 +61,7 @@ const team = [
     accentColor: "from-[#078930] to-[#FCDD09]",
     flag: "🇪🇹",
     specialties: ["Sound Design", "Comedy", "Production"],
-    episodeCount: 99.99
+    episodeCount: 99
   },
   {
     name: "Dania Awet",

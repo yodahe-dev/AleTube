@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model TeamMember {
+  id           Int      @id @default(autoincrement())
+  name         String
+  role         String
+  bio          String
+  img          String
+  ig           String
+  tiktok       String
+  isFounder    Boolean
+  country      String
+  accentColor  String
+  flag         String
+  specialties  String
+  episodeCount Int
+}
