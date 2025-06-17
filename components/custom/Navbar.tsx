@@ -276,7 +276,6 @@ export default function Navbar() {
   const navLinks: NavLink[] = [
     { href: "/", label: "Home" },
     { href: "/episodes", label: "Episodes" },
-    { href: "/guests", label: "Guests" },
     { href: "/team", label: "Team" },
     { href: "/contact", label: "Contact" },
   ];
@@ -488,7 +487,6 @@ export default function Navbar() {
                 </AnimatePresence>
               </motion.div>
 
-              <ThemeToggle />
 
               {/* Mobile Menu Button */}
               <Button
