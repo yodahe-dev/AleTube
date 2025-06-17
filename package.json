@@ -6,7 +6,6 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "postbuild": "netlify next",
     "lint": "next lint"
   },
   "dependencies": {
@@ -37,7 +36,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@netlify/next": "^1.4.9",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/lodash": "^4.17.17",
