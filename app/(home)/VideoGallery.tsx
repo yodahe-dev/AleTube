@@ -1,12 +1,12 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { FaPlay, FaFire, FaClock, FaThumbsUp, FaHistory, FaSearch } from "react-icons/fa";
+import { FaPlay, FaFire, FaClock, FaThumbsUp, FaHistory, FaSearch, FaEye, FaStar } from "react-icons/fa";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 
 const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY;
@@ -18,21 +18,56 @@ interface Video {
   description: string;
   thumbnail: string;
   publishedAt: string;
-  rawPublishedAt: string; // For accurate sorting
+  rawPublishedAt: string;
   viewCount: string;
-  rawViewCount: number; // For accurate sorting
+  rawViewCount: number;
   likeCount: string;
-  rawLikeCount: number; // For accurate sorting
+  rawLikeCount: number;
   duration: string;
 }
 
+// Format numbers like YouTube (1K, 1M, etc.)
+const formatNumber = (num: number): string => {
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + 'B';
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+  return num.toString();
+};
+
+// Format date to relative time
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  let interval = Math.floor(seconds / 31536000);
+  if (interval > 1) return `${interval} years ago`;
+  if (interval === 1) return '1 year ago';
+  
+  interval = Math.floor(seconds / 2592000);
+  if (interval > 1) return `${interval} months ago`;
+  if (interval === 1) return '1 month ago';
+  
+  interval = Math.floor(seconds / 86400);
+  if (interval > 1) return `${interval} days ago`;
+  if (interval === 1) return '1 day ago';
+  
+  interval = Math.floor(seconds / 3600);
+  if (interval > 1) return `${interval} hours ago`;
+  if (interval === 1) return '1 hour ago';
+  
+  interval = Math.floor(seconds / 60);
+  if (interval > 1) return `${interval} minutes ago`;
+  
+  return 'Just now';
+};
+
 export const VideoGallery = () => {
   const [videos, setVideos] = useState<Video[]>([]);
-  const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("latest");
 
   // Debounce search input (500ms delay)
@@ -97,7 +132,6 @@ export const VideoGallery = () => {
         });
         
         setVideos(formattedVideos);
-        setFilteredVideos(formattedVideos);
       } catch (error) {
         console.error("Failed to fetch videos:", error);
       } finally {
@@ -108,44 +142,34 @@ export const VideoGallery = () => {
     fetchVideos();
   }, []);
 
-  // Filter videos based on debounced query
-  useEffect(() => {
+  // Filter and sort videos
+  const filteredVideos = useMemo(() => {
+    let result = [...videos];
+    
+    // Apply search filter
     if (debouncedQuery) {
-      const filtered = videos.filter(video => 
+      result = result.filter(video => 
         video.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
         video.description.toLowerCase().includes(debouncedQuery.toLowerCase())
       );
-      setFilteredVideos(filtered);
-    } else {
-      setFilteredVideos(videos);
     }
-  }, [debouncedQuery, videos]);
-
-  // Format YouTube duration (PT15M33S -> 15:33)
-  const formatDuration = (duration: string) => {
-    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) return "0:00";
     
-    const hours = parseInt(match[1]) || 0;
-    const minutes = parseInt(match[2]) || 0;
-    const seconds = parseInt(match[3]) || 0;
-    
-    return hours > 0 
-      ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      : `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+    return result;
+  }, [videos, debouncedQuery]);
 
   // Get videos by category with accurate sorting
-  const getVideosByCategory = useCallback((category: string) => {
-    if (!videos.length) return [];
+  const getVideosByCategory = useCallback((category: string, videoList: Video[]) => {
+    if (!videoList.length) return [];
     
     // Create a copy to avoid mutating original array
-    const sortedVideos = [...videos];
+    const sortedVideos = [...videoList];
     
     switch (category) {
       case "latest":
-        // Already in latest order from API
-        return sortedVideos;
+        // Sort by latest (descending by published date)
+        return sortedVideos.sort((a, b) => 
+          new Date(b.rawPublishedAt).getTime() - new Date(a.rawPublishedAt).getTime()
+        );
       
       case "popular":
         // Sort by highest view count
@@ -164,16 +188,43 @@ export const VideoGallery = () => {
       default:
         return sortedVideos;
     }
-  }, [videos]);
+  }, []);
 
-  // Handle video selection
-  const handleVideoSelect = (video: Video) => {
-    setSelectedVideo(video);
-    // Scroll to video player
-    document.getElementById("video-player")?.scrollIntoView({ behavior: "smooth" });
+  // Format YouTube duration (PT15M33S -> 15:33)
+  const formatDuration = (duration: string) => {
+    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (!match) return "0:00";
+    
+    const hours = parseInt(match[1]) || 0;
+    const minutes = parseInt(match[2]) || 0;
+    const seconds = parseInt(match[3]) || 0;
+    
+    return hours > 0 
+      ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      : `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Handle play video
+  const handlePlayVideo = (videoId: string) => {
+    if (playingVideoId === videoId) {
+      setPlayingVideoId(null);
+    } else {
+      setPlayingVideoId(videoId);
+      
+      // Scroll to video when playing
+      setTimeout(() => {
+        const element = document.getElementById(`video-${videoId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }, 100);
+    }
+  };
 
+  // Get sorted videos for current tab
+  const sortedVideos = useMemo(() => {
+    return getVideosByCategory(activeTab, filteredVideos);
+  }, [activeTab, filteredVideos, getVideosByCategory]);
 
   return (
     <section className="py-16 bg-gradient-to-b from-slate-900 to-slate-950">
@@ -198,8 +249,6 @@ export const VideoGallery = () => {
         </div>
 
 
-
-       
 
         {/* Video Categories */}
         <Tabs 
@@ -257,57 +306,84 @@ export const VideoGallery = () => {
                   </CardContent>
                 </Card>
               ))
-            ) : filteredVideos.length > 0 ? (
-              getVideosByCategory(activeTab).slice(0, 6).map((video) => (
+            ) : sortedVideos.length > 0 ? (
+              sortedVideos.slice(0, 6).map((video) => (
                 <motion.div
                   key={video.id}
+                  id={`video-${video.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  whileHover={{ y: -5 }}
+                  className="bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700 hover:border-red-500 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/20"
                 >
-                  <Card 
-                    className="bg-slate-800 border-slate-700 overflow-hidden cursor-pointer transition-all hover:border-red-500/50"
-                    onClick={() => handleVideoSelect(video)}
-                  >
-                    <CardContent className="p-0 relative">
-                      {/* Thumbnail */}
-                      <div className="relative">
+                  {/* Video Thumbnail/Player */}
+                  <div className="relative aspect-video">
+                    {playingVideoId === video.id ? (
+                      <div className="w-full h-full">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${video.id}?autoplay=1`}
+                          title={video.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full"
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        className="relative w-full h-full cursor-pointer" 
+                        onClick={() => handlePlayVideo(video.id)}
+                      >
                         <img 
                           src={video.thumbnail} 
                           alt={video.title} 
-                          className="w-full h-48 object-cover"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                          <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
-                            <FaPlay className="text-white text-xl" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center">
+                          <div className="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded-md text-sm">
+                            {video.duration}
                           </div>
-                        </div>
-                        <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
-                          {video.duration}
-                        </div>
-                      </div>
-                      
-                      {/* Video Info */}
-                      <div className="p-4">
-                        <h3 className="font-bold text-white mb-2 line-clamp-2">{video.title}</h3>
-                        <div className="flex flex-wrap gap-3 text-gray-400 text-sm">
-                          <div className="flex items-center">
-                            <FaPlay className="mr-1" />
-                            <span>{video.viewCount}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <FaThumbsUp className="mr-1" />
-                            <span>{video.likeCount}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <FaClock className="mr-1" />
-                            <span>{video.publishedAt}</span>
+                          <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center hover:scale-105 transition-transform">
+                            <FaPlay className="text-white ml-1" size={20} />
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </div>
+                  
+                  {/* Video Info */}
+                  <div className="p-4">
+                    <h3 className="font-bold text-white mb-2 line-clamp-2">{video.title}</h3>
+                    <div className="flex flex-wrap gap-3 text-gray-400 text-sm">
+                      <div className="flex items-center">
+                        <FaPlay className="mr-1" />
+                        <span>{video.viewCount} views</span>
+                      </div>
+                      <div className="flex items-center">
+                        <FaThumbsUp className="mr-1" />
+                        <span>{video.likeCount} likes</span>
+                      </div>
+                      <div className="flex items-center">
+                        <FaClock className="mr-1" />
+                        <span>{formatDate(video.rawPublishedAt)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handlePlayVideo(video.id)}
+                        className={`flex-1 text-center py-2 rounded-lg ${
+                          playingVideoId === video.id
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-slate-700 hover:bg-slate-600'
+                        }`}
+                      >
+                        {playingVideoId === video.id ? 'Stop' : 'Play'}
+                      </motion.button>
+                    </div>
+                  </div>
                 </motion.div>
               ))
             ) : (
@@ -319,6 +395,7 @@ export const VideoGallery = () => {
           </div>
         </Tabs>
 
+        {/* View All Reactions Button */}
         <div className="text-center mt-12">
           <Link href="/reaction" passHref>
             <Button 
