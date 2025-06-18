@@ -1,22 +1,24 @@
-import { useState, useEffect } from "react";
+"use client"
 
-export function useResponsive() {
-  const [width, setWidth] = useState<number>(typeof window !== "undefined" ? window.innerWidth : 0);
-  const [isMobile, setIsMobile] = useState<boolean>(width < 768);
-  const [isTablet, setIsTablet] = useState<boolean>(width >= 768 && width < 1024);
-  const [isDesktop, setIsDesktop] = useState<boolean>(width >= 1024);
+import { useEffect, useState } from "react"
+
+export type DeviceType = "mobile" | "tablet" | "desktop"
+
+export function useDeviceType(): DeviceType {
+  const [device, setDevice] = useState<DeviceType>("desktop")
 
   useEffect(() => {
-    function onResize() {
-      setWidth(window.innerWidth);
-      setIsMobile(window.innerWidth < 768);
-      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
-      setIsDesktop(window.innerWidth >= 1024);
+    const updateDevice = () => {
+      const width = window.innerWidth
+      if (width < 640) setDevice("mobile")
+      else if (width < 1024) setDevice("tablet")
+      else setDevice("desktop")
     }
 
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    updateDevice()
+    window.addEventListener("resize", updateDevice)
+    return () => window.removeEventListener("resize", updateDevice)
+  }, [])
 
-  return { width, isMobile, isTablet, isDesktop };
+  return device
 }

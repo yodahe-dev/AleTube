@@ -1,19 +1,11 @@
-import Hero from "./Hero"
-import FeaturedEpisodes from "./FeaturedEpisodes"
-import MeetTheHosts from "./MeetTheHosts"
-import NewsUpdates from "./NewsUpdates"
-import FanTestimonials from "./FanTestimonials"
-import SponsorUs from "./SponsorUs"
+import { Hero } from "./Hero";
+import { VideoGallery } from "./VideoGallery";
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="">
+    <>
       <Hero />
-      <FeaturedEpisodes />
-      <MeetTheHosts />
-      <NewsUpdates />
-      <FanTestimonials />
-      <SponsorUs />
-    </div>
-  )
+      <VideoGallery/>
+    </>
+  );
 }

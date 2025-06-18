@@ -1,4 +1,4 @@
-export default function FanTestimonials() {
+export default function page() {
   return (
     <div>
       
