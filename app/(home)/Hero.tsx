@@ -1,4 +1,3 @@
-// src/components/Hero.tsx
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
@@ -86,7 +85,7 @@ export const Hero = () => {
                 variant="outline"
                 className="border-white/30 bg-transparent text-white hover:bg-white/10 py-6 px-8 rounded-full text-lg font-bold"
               >
-                <a href="#featured">
+                <a href="/reactions" className="flex items-center">
                   <FaPlay className="mr-2" /> Watch Videos
                 </a>
               </Button>
