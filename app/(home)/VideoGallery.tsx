@@ -397,7 +397,7 @@ export const VideoGallery = () => {
 
         {/* View All Reactions Button */}
         <div className="text-center mt-12">
-          <Link href="/reaction" passHref>
+          <Link href="/reactions" passHref>
             <Button 
               variant="outline"
               className="border-red-500 text-red-500 hover:bg-red-500/10 px-8 py-6 text-lg"

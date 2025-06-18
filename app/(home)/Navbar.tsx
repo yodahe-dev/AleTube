@@ -114,8 +114,8 @@ export function Navbar() {
       icon: <FaFire className="text-lg text-orange-500" />,
     },
     { 
-      name: "Community", 
-      href: "/community", 
+      name: "packages", 
+      href: "/packages", 
       icon: <FaUserFriends className="text-lg text-blue-400" />,
     },
     { 
@@ -456,7 +456,7 @@ function Footer() {
               </div>
             </div>
             <p className="text-gray-400 max-w-xs">
-              Creating the best reaction content on YouTube. Join our community of passionate viewers!
+              Creating the best reaction content on YouTube. Join our packages of passionate viewers!
             </p>
             
             {/* Subscriber Count */}
@@ -492,7 +492,7 @@ function Footer() {
               {[
                 { name: "Home", href: "/" },
                 { name: "Reactions", href: "/reactions" },
-                { name: "Community", href: "/community" },
+                { name: "packages", href: "/packages" },
                 { name: "Store", href: "/store" },
                 { name: "Contact", href: "/contact" },
               ].map((link) => (
@@ -539,7 +539,7 @@ function Footer() {
               <FaUserFriends className="text-blue-400" /> Connect
             </h3>
             <p className="text-gray-400 mb-4">
-              Join our community across platforms
+              Join our packages across platforms
             </p>
             
             <div className="flex gap-4 mb-6">
